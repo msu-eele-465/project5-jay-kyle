@@ -97,6 +97,14 @@ unsigned int ADC_Value;
 float voltage;
 float temp;
 
+#define MAX_WINDOW 10       // upper bound of window size
+float temp_buffer[MAX_WINDOW];
+float temp_sum = 0;
+float temp_avg = 0;
+int temp_index = 0;     
+int window_size = 3;        // default n = 3 
+int i = 0;
+
 void init_ADC(void) {
     WDTCTL = WDTPW | WDTHOLD;               // Stop watchdog timer           
     PM5CTL0 &= ~LOCKLPM5;                   // Disable High Z mode
@@ -478,11 +486,32 @@ __interrupt void LED_I2C_ISR(void){
 }
 */
 
+void moving_average(float new_temp) {
+    temp_buffer[temp_index] = new_temp;
+    if (temp_index == (window_size - 1)) {
+        for (i = 0; i < window_size; i++) {
+            temp_sum = temp_sum + temp_buffer[i];
+        }
+        temp_avg = temp_sum / window_size;
+        package_temp(temp_avg);
+        temp_sum = 0;
+        temp_avg = 0;
+        temp_index = 0;  
+    } else {
+        temp_index = temp_index + 1;
+    }
+}
+
+void package_temp(float temp_avg) {
+
+}
+
 #pragma vector=ADC_VECTOR
 __interrupt void ADC_ISR(void){
     ADC_Value = ADCMEM0;                // read ADC value
     voltage = ADC_Value * 3.3f / 4095.0f;
     temp = -1481.96f + sqrt(2.1962e6f + ((1.8639f - voltage) / 3.88e-6f));
+    moving_average(temp);
 
     ADCCTL0 |= ADCENC | ADCSC;          // restart ADC
 }
