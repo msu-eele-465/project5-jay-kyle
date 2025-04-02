@@ -65,7 +65,9 @@
 //   Built with IAR Embedded Workbench v6.50.0 & Code Composer Studio v6.2.0
 //******************************************************************************
 #include <msp430.h>
+#include <math.h>
 
+/*
 int status = 0;                             // tracks locked, unlocked, or unlocking
 int locked = 0;                             // status value for locked
 int unlocking = 1;                          // status value for unlocking
@@ -89,7 +91,34 @@ float base_transition_period = 1.0;         // stores base transition period for
 int LED_Data_Cnt = 0;
 int LCD_Data_Cnt = 0;
 char Data_Packet[] = {0x00, 0x00, 0x00};      // status, key_num, base_period
+*/
 
+unsigned int ADC_Value;
+float voltage;
+float temp;
+
+void init_ADC(void) {
+    WDTCTL = WDTPW | WDTHOLD;               // Stop watchdog timer           
+    PM5CTL0 &= ~LOCKLPM5;                   // Disable High Z mode
+
+    P1SEL1 |= BIT2;                         // Configure P1.2 Pin for A2
+    P1SEL0 |= BIT2; 
+
+    ADCCTL0 &= ~ADCSHT;                     // Clear ADCSHT from def. of ADCSHT=01
+    ADCCTL0 |= ADCSHT_2;                    // Conversion Cycles = 16 (ADCSHT=10)
+    ADCCTL0 |= ADCON;                       // Turn ADC ON
+    ADCCTL1 |= ADCSSEL_2;                   // ADC Clock Source = SMCLK
+    ADCCTL1 |= ADCSHP;                      // Sample signal source = sampling timer
+    ADCCTL2 &= ~ADCRES;                     // Clear ADCRES from def. of ADCRES=01
+    ADCCTL2 |= ADCRES_2;                    // Resolution = 12-bit (ADCRES = 10)
+    ADCMCTL0 |= ADCINCH_2;                  // ADC Input Channel = A2 (P1.2)
+    ADCIE |= ADCIE0;                        // Enable ADC Conv Complete IRQ
+
+    __enable_interrupt();                   // Enable interrupts
+}
+
+
+/*
 void init_rgb_led(void) {
     WDTCTL = WDTPW | WDTHOLD;               // Stop watchdog timer           
     PM5CTL0 &= ~LOCKLPM5;                   // Disable High Z mode
@@ -180,8 +209,10 @@ void i2c_b1_init(void) {
     UCB1IE |= UCTXIE0;                      // Enable I2C Tx0 IR1
     __enable_interrupt();                   // Enable Maskable IRQs
 }
+*/
 
 int main(void) {
+    /*
     init_rgb_led();
     init_keypad();
     i2c_b0_init();
@@ -200,11 +231,20 @@ int main(void) {
         if(key_pad_flag == 1){
             get_key();
             P1DIR |=  (BIT4 | BIT5 | BIT6 | BIT7); 
-            key_pad_flag = 0;                                   // stops the ISR from prematurly setting keypad flag
+            key_pad_flag = 0;               // stops the ISR from prematurly setting keypad flag
         }
+    }
+    */
+    init_ADC();
+
+    ADCCTL0 |= ADCENC | ADCSC;              // trigger ISR
+
+    while(1) {
+        __no_operation();
     }
 }    
 
+/*
 void get_key() {
     P1OUT &= ~(BIT5 | BIT6 | BIT7);  // clears outputs to start other than BIT4
     P1OUT |= BIT4; // Activate first row
@@ -388,7 +428,9 @@ void set_rgb_led_pwm(int red, int green, int blue) {
     TB3CCR2 = green*64; // Green brightness
     TB3CCR3 = blue*64;  // Blue brightness
 }
+*/
 
+/*
 #pragma vector = TIMER3_B0_VECTOR
 __interrupt void RGB_Period_ISR(void) {
     P6OUT |= (BIT0 | BIT1 | BIT2);  // Turn ON all LEDs at start of period
@@ -433,4 +475,14 @@ __interrupt void LED_I2C_ISR(void){
         UCB1TXBUF = Data_Packet[LED_Data_Cnt];
         LED_Data_Cnt++;
     }
+}
+*/
+
+#pragma vector=ADC_VECTOR
+__interrupt void ADC_ISR(void){
+    ADC_Value = ADCMEM0;                // read ADC value
+    voltage = ADC_Value * 3.3f / 4095.0f;
+    temp = -1481.96f + sqrt(2.1962e6f + ((1.8639f - voltage) / 3.88e-6f));
+
+    ADCCTL0 |= ADCENC | ADCSC;          // restart ADC
 }
