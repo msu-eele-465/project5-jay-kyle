@@ -85,12 +85,8 @@ int pattern7 = 0;
 int pattern3_step = 0;
 int pattern6_step = 0;
 
-int base_transition_scalar = 4;   
-
 int Data_Cnt = 0;
-int Data_In[] = {0x00, 0x00, 0x00};
-
-int last_i2c_time = 0;
+int Data_In[] = {0x00, 0x00};
 
 void init_led_bar(void) {
     WDTCTL = WDTPW | WDTHOLD;                    // Stop watchdog timer           
@@ -103,45 +99,45 @@ void init_led_bar(void) {
     P2OUT &= ~(BIT6 | BIT7);
 
     // Configure Timer B0
-    TB0CTL |= (TBSSEL__ACLK | MC__UP | TBCLR); // Use ACLK, up mode, clear
-    TB0CCR0 = (int)(base_transition_scalar * 8192);    // 1s for ACLK (32768Hz)
+    TB0CTL |= (TBSSEL__ACLK | MC__UP | TBCLR);  // Use ACLK, up mode, clear
+    TB0CCR0 = 32768;                            // 1s for ACLK (32768Hz)
 
     // Enable and clear interrupts for each color channel
-    TB0CCTL0 |= CCIE;                            // Interrupt for pattern transistions
+    TB0CCTL0 |= CCIE;                           // Interrupt for pattern transistions
     TB0CCTL0 &= ~CCIFG;
 
-    __enable_interrupt();                        // enable interrupts
+    __enable_interrupt();                       // enable interrupts
 }
 
 void i2c_b0_init(void) {
-    WDTCTL = WDTPW | WDTHOLD;               // Stop watchdog timer
+    WDTCTL = WDTPW | WDTHOLD;                   // Stop watchdog timer
 
-    UCB0CTLW0 |= UCSWRST;                   // Put eUSCI_B0 in SW Reset
-    UCB0CTLW0 |= UCMODE_3;                  // Put into I2C mode
-    UCB0CTLW0 |= UCSYNC;                    // Synchronous
-    UCB0CTLW0 &= ~UCMST;                    // Put into slave mode
-    UCB0I2COA0 = 0x0020 | UCOAEN;           // Own address + enable bit
-    UCB0CTLW1 &= ~UCASTP_3;                 // Use manual stop detection
+    UCB0CTLW0 |= UCSWRST;                       // Put eUSCI_B0 in SW Reset
+    UCB0CTLW0 |= UCMODE_3;                      // Put into I2C mode
+    UCB0CTLW0 |= UCSYNC;                        // Synchronous
+    UCB0CTLW0 &= ~UCMST;                        // Put into slave mode
+    UCB0I2COA0 = 0x0020 | UCOAEN;               // Own address + enable bit
+    UCB0CTLW1 &= ~UCASTP_3;                     // Use manual stop detection
 
-    P1SEL1 &= ~BIT3;                        // P1.3 = SCL
+    P1SEL1 &= ~BIT3;                            // P1.3 = SCL
     P1SEL0 |= BIT3;                            
-    P1SEL1 &= ~BIT2;                        // P1.2 = SDA
+    P1SEL1 &= ~BIT2;                            // P1.2 = SDA
     P1SEL0 |= BIT2;
 
-    PM5CTL0 &= ~LOCKLPM5;                   // Disable low power mode
+    PM5CTL0 &= ~LOCKLPM5;                       // Disable low power mode
 
-    UCB0CTLW0 &= ~UCSWRST;                  // Take eUSCI_B0 out of SW Reset
+    UCB0CTLW0 &= ~UCSWRST;                      // Take eUSCI_B0 out of SW Reset
 
-    UCB0IE |= UCRXIE0 | UCSTPIE | UCSTTIE;  // Enable I2C Rx0 IR1
-    __enable_interrupt();                   // Enable Maskable IRQs
+    UCB0IE |= UCRXIE0 | UCSTPIE | UCSTTIE;      // Enable I2C Rx0 IR1
+    __enable_interrupt();                       // Enable Maskable IRQs
 }
 
 void i2c_status_led_init( void) {
-    WDTCTL = WDTPW | WDTHOLD;               // Stop watchdog timer
-    PM5CTL0 &= ~LOCKLPM5;                        // Disable High Z mode
+    WDTCTL = WDTPW | WDTHOLD;                   // Stop watchdog timer
+    PM5CTL0 &= ~LOCKLPM5;                       // Disable High Z mode
 
-    P2DIR |= BIT0;                          // Set P2.0 as output
-    P2OUT &= ~BIT0;                         // Clear P2.0
+    P2DIR |= BIT0;                              // Set P2.0 as output
+    P2OUT &= ~BIT0;                             // Clear P2.0
 
     // Configure Timer B1
     TB1CTL |= (TBSSEL__ACLK | MC__UP | TBCLR);  // Use ACLK, up mode, clear
@@ -167,9 +163,6 @@ int main(void) {
 void process_i2c_data(void) {
     status = Data_In[0];
     key_num = Data_In[1];
-    base_transition_scalar = Data_In[2];
-
-    TB0CCR0 = (int)(base_transition_scalar * 8192);     // 8192 = 0.25s for ACLK (32768Hz)
 
     if (key_num >= 0 && key_num <= 7) {
         pattern = key_num;
@@ -212,7 +205,6 @@ void update_led_bar(int status, int pattern) {
         pattern = -1;                   // reset everything when system gets locked
         current_pattern = -1;
         next_pattern = -1;
-        base_transition_scalar = 4;
         write_8bit_value(0x00);  
     }      
 }
@@ -310,7 +302,6 @@ __interrupt void Pattern_Transition_ISR(void) {
         pattern = -1;                   // reset everything when system gets locked
         current_pattern = -1;
         next_pattern = -1;
-        base_transition_scalar = 4;
         write_8bit_value(0b00000000);
     }
     TB0CCTL0 &= ~ CCIFG;            // Clear interrupt flag
@@ -326,13 +317,11 @@ __interrupt void LED_I2C_ISR(void){
             break;
 
         case USCI_I2C_UCRXIFG0:   // Byte received
-            if (Data_Cnt < 3) {
+            if (Data_Cnt < 2) {
                 Data_In[Data_Cnt++] = UCB0RXBUF;
             }
-            if (Data_Cnt == 3) {
+            if (Data_Cnt == 2) {
                 process_i2c_data(); 
-                last_i2c_time = 0;  // Reset I2C activity timer 
-                P2OUT |= BIT0;
             }
             break;
 
@@ -342,15 +331,4 @@ __interrupt void LED_I2C_ISR(void){
 
         default: break;
     }
-}
-
-#pragma vector = TIMER1_B0_VECTOR
-__interrupt void Timer1_ISR(void) {
-    last_i2c_time++;
-
-    if (last_i2c_time >= 3) { // 3 seconds
-        P2OUT &= ~BIT0;       // Turn OFF LED (recent I2C activity)
-    }
-
-    TB1CCTL0 &= ~CCIFG;       // Clear flag
 }
