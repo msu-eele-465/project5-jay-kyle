@@ -118,8 +118,8 @@ void init_ADC(void) {
     WDTCTL = WDTPW | WDTHOLD;               // Stop watchdog timer           
     PM5CTL0 &= ~LOCKLPM5;                   // Disable High Z mode
 
-    P1SEL1 |= BIT2;                         // Configure P1.2 Pin for A2
-    P1SEL0 |= BIT2; 
+    P1SEL1 |= BIT1;                         // Configure P1.2 Pin for A1
+    P1SEL0 |= BIT1; 
 
     ADCCTL0 &= ~ADCSHT;                     // Clear ADCSHT from def. of ADCSHT=01
     ADCCTL0 |= ADCSHT_2;                    // Conversion Cycles = 16 (ADCSHT=10)
@@ -128,7 +128,7 @@ void init_ADC(void) {
     ADCCTL1 |= ADCSHP;                      // Sample signal source = sampling timer
     ADCCTL2 &= ~ADCRES;                     // Clear ADCRES from def. of ADCRES=01
     ADCCTL2 |= ADCRES_2;                    // Resolution = 12-bit (ADCRES = 10)
-    ADCMCTL0 |= ADCINCH_2;                  // ADC Input Channel = A2 (P1.2)
+    ADCMCTL0 |= ADCINCH_1;                  // ADC Input Channel = A1 (P1.1)
     ADCIE |= ADCIE0;                        // Enable ADC Conv Complete IRQ
 
     __enable_interrupt();                   // Enable interrupts
