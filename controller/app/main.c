@@ -103,8 +103,8 @@ unsigned int ADC_Value;                     // stores adc value
 float voltage;                              // stores adc value converted to a voltage
 float temp;                                 // stores temp value in celcius
 int temp_type = 0;                          // tracks if celcius or fahrenheit should be displayed
-int c = 0;                                  // temp_type value for celcius
-int f = 1;                                  // temp_type value for fahrenheit
+
+int i;
 
 #define MAX_WINDOW 16 
 float temp_buffer[MAX_WINDOW];              // max window size = 10 
@@ -132,8 +132,12 @@ void init_ADC(void) {
     ADCIE |= ADCIE0;                        // Enable ADC Conv Complete IRQ
 
     // Configure Timer B2
-    TB2CTL |= (TBSSEL__SMCLK | MC__UP | TBCLR);  // Use SMCLK, up mode, clear
+    TB2CTL |= (TBSSEL__ACLK | MC__UP | TBCLR);  // Use ACLK, up mode, clear
     TB2CCR0 = 16320;                             // 0.5s
+    
+    // Enable and clear interrupts                           
+    TB2CCTL0 |= CCIE;                          
+    TB2CCTL0 &= ~CCIFG; 
 
     __enable_interrupt();                   // Enable interrupts
 }
@@ -337,7 +341,8 @@ void process_key(int key) {
             switch (key) {
                 case 'A': mode = window_set;  break;
                 case 'B': mode = pattern_set;  break;
-                case 'C': 
+                case 'C': temp_type = !temp_type; break;
+                case 'D': 
                     status = locked;
                     update_rgb_led(status);
                     i2c_write_led();
@@ -355,6 +360,7 @@ void process_key(int key) {
                 case '8': window_size = 8; break;
                 case '9': window_size = 9; break;
             }
+            reset_temp_buffer(); 
             mode = normal;
         } else if (mode == pattern_set) {
             switch (key) {
@@ -460,12 +466,23 @@ void moving_average(float new_temp) {
 
     if (samples_collected == window_size) {         // calculate average if we have enough values
         temp_avg = temp_sum / window_size;
+        i2c_write_lcd();
+    }
+}
+
+void reset_temp_buffer() {
+    temp_sum = 0;
+    temp_index = 0;
+    samples_collected = 0;
+    for (i = 0; i < MAX_WINDOW; i++) {
+        temp_buffer[i] = 0;
     }
 }
 
 #pragma vector = TIMER2_B0_VECTOR
 __interrupt void ADC_Read_ISR(void) {
     ADCCTL0 |= ADCENC | ADCSC;      // restart ADC every 0.5s
+    TB2CCTL2 &= ~CCIFG;
 }
 
 #pragma vector = TIMER3_B0_VECTOR
@@ -507,7 +524,7 @@ __interrupt void LCD_I2C_ISR(void){
 __interrupt void LED_I2C_ISR(void) {
     if (LED_Data_Cnt == (sizeof(LED_Data_Packet) - 1)) {
         UCB1TXBUF = LED_Data_Packet[LED_Data_Cnt];
-        LCD_Data_Cnt = 0;
+        LED_Data_Cnt = 0;
     } else {
         UCB1TXBUF = LED_Data_Packet[LED_Data_Cnt];
         LED_Data_Cnt++;
