@@ -83,7 +83,7 @@ int int_en = 0;                             //stops intterupt from flagging afte
 int pressed = 0;
 char key = 'N';                             // starts the program at NA until a key gets pressed
 
-int pattern = 0xFF;                         // tracks pattern that is set
+int pattern = 8;                         // tracks pattern that is set
 
 int window_digit1 = -1;
 int window_digit2 = -1;
@@ -96,7 +96,7 @@ int password_index = 1;                     // tracks which digit is being enter
 
 int LED_Data_Cnt = 0;
 int LCD_Data_Cnt = 0;
-char LED_Data_Packet[] = {0x00, 0xFF};                      // status, key_num
+char LED_Data_Packet[] = {0x00, 0x00};                      // status, key_num
 char LCD_Data_Packet[] = {0x00, 0x00, 0x00, 0x00, 0x00};    // mode, key_num, F/C, temp, n
 
 unsigned int ADC_Value;                     // stores adc value
@@ -130,6 +130,10 @@ void init_ADC(void) {
     ADCCTL2 |= ADCRES_2;                    // Resolution = 12-bit (ADCRES = 10)
     ADCMCTL0 |= ADCINCH_1;                  // ADC Input Channel = A1 (P1.1)
     ADCIE |= ADCIE0;                        // Enable ADC Conv Complete IRQ
+
+    // Configure Timer B2
+    TB2CTL |= (TBSSEL__SMCLK | MC__UP | TBCLR);  // Use SMCLK, up mode, clear
+    TB2CCR0 = 16320;                             // 0.5s
 
     __enable_interrupt();                   // Enable interrupts
 }
@@ -331,38 +335,40 @@ void process_key(int key) {
     } else {
         if (mode == normal) {
             switch (key) {
-                case 'A': mode = window_set; i2c_write(); break;
-                case 'B': mode = pattern_set; i2c_write(); break;
+                case 'A': mode = window_set;  break;
+                case 'B': mode = pattern_set;  break;
                 case 'C': 
                     status = locked;
                     update_rgb_led(status);
-                    mode = normal;
-                    i2c_write();
+                    i2c_write_led();
                     break;
             }
-        } else if (mode == window) {
+        } else if (mode == window_set) {
             switch (key) {
-                case '1': window_size = 1; i2c_write(); mode = normal; break;
-                case '2': window_size = 2; i2c_write(); mode = normal; break;
-                case '3': window_size = 3; i2c_write(); mode = normal; break;
-                case '4': window_size = 4; i2c_write(); mode = normal; break;
-                case '5': window_size = 5; i2c_write(); mode = normal; break;
-                case '6': window_size = 6; i2c_write(); mode = normal; break;
-                case '7': window_size = 7; i2c_write(); mode = normal; break;
-                case '8': window_size = 8; i2c_write(); mode = normal; break;
-                case '9': window_size = 9; i2c_write(); mode = normal; break;
+                case '1': window_size = 1; break;
+                case '2': window_size = 2; break;
+                case '3': window_size = 3; break;
+                case '4': window_size = 4; break;
+                case '5': window_size = 5; break;
+                case '6': window_size = 6; break;
+                case '7': window_size = 7; break;
+                case '8': window_size = 8; break;
+                case '9': window_size = 9; break;
             }
+            mode = normal;
         } else if (mode == pattern_set) {
             switch (key) {
-                case '0': pattern = 0; i2c_write(); mode = normal; break;
-                case '1': pattern = 1; i2c_write(); mode = normal; break;
-                case '2': pattern = 2; i2c_write(); mode = normal; break;
-                case '3': pattern = 3; i2c_write(); mode = normal; break;
-                case '4': pattern = 4; i2c_write(); mode = normal; break;
-                case '5': pattern = 5; i2c_write(); mode = normal; break;
-                case '6': pattern = 6; i2c_write(); mode = normal; break;
-                case '7': pattern = 7; i2c_write(); mode = normal; break;
+                case '0': pattern = 0; break;
+                case '1': pattern = 1; break;
+                case '2': pattern = 2; break;
+                case '3': pattern = 3; break;
+                case '4': pattern = 4; break;
+                case '5': pattern = 5; break;
+                case '6': pattern = 6; break;
+                case '7': pattern = 7; break;
             }
+            i2c_write_led();
+            mode = normal;
         }
     }
 }
@@ -372,14 +378,10 @@ void check_password(int key) {
         case 1:
             if (key == password_char1) {
                 status = unlocking;
-                update_rgb_led(unlocking);
                 password_index = 2;
-                i2c_write();
             } else {
                 status = locked;
-                update_rgb_led(locked);
                 password_index = 1;
-                i2c_write();
             }
             break;
         case 2:
@@ -387,9 +389,7 @@ void check_password(int key) {
                 password_index = 3;
             } else {
                 status = locked;
-                update_rgb_led(locked);
                 password_index = 1;
-                i2c_write();
             }
             break;
         case 3:
@@ -397,27 +397,21 @@ void check_password(int key) {
                 password_index = 4;
             } else {
                 status = locked;
-                update_rgb_led(locked);
                 password_index = 1;
-                i2c_write();
             }
             break;
         case 4:
             if (key == password_char4) {
                 status = unlocked;
-                pattern = -1;
-                update_rgb_led(unlocked);
+                pattern = 8;
                 password_index = 1;
-                mode = normal;
-                i2c_write();
             } else {
                 status = locked;
-                update_rgb_led(locked);
                 password_index = 1;
-                i2c_write();
             }
             break;
     }
+    update_rgb_led(status);
 }
 
 void update_rgb_led(int status) {
@@ -434,17 +428,23 @@ void set_rgb_led_pwm(int red, int green, int blue) {
     TB3CCR3 = blue*64;  // Blue brightness
 }
 
-void i2c_write(void) {
+void i2c_write_led(void) {
+    LED_Data_Cnt = 0;
     LED_Data_Packet[0] = status;
     LED_Data_Packet[1] = pattern;
+    UCB1TBCNT = sizeof(LED_Data_Packet);            
     UCB1CTLW0 |= UCTXSTT;                               // start condition
     __delay_cycles(100);
+}
 
+void i2c_write_lcd(void) {
+    LCD_Data_Cnt = 0;  
     LCD_Data_Packet[0] = mode;
     LCD_Data_Packet[1] = pattern;
     LCD_Data_Packet[2] = temp_type;
     LCD_Data_Packet[3] = (int)(temp_avg * 10 + 0.5f);   // ex. 23.12 --> 231
-    LCD_Data_Packet[4] = window_size;                 
+    LCD_Data_Packet[4] = window_size;     
+    UCB0TBCNT = sizeof(LCD_Data_Packet);            
     UCB0CTLW0 |= UCTXSTT;                               // start condition
     __delay_cycles(100);
 }
@@ -460,17 +460,18 @@ void moving_average(float new_temp) {
 
     if (samples_collected == window_size) {         // calculate average if we have enough values
         temp_avg = temp_sum / window_size;
-        if (mode == normal) {
-            i2c_write(); 
-        }
     }
+}
+
+#pragma vector = TIMER2_B0_VECTOR
+__interrupt void ADC_Read_ISR(void) {
+    ADCCTL0 |= ADCENC | ADCSC;      // restart ADC every 0.5s
 }
 
 #pragma vector = TIMER3_B0_VECTOR
 __interrupt void RGB_Period_ISR(void) {
     P6OUT |= (BIT0 | BIT1 | BIT2);  // Turn ON all LEDs at start of period
     TB3CCTL0 &= ~CCIFG;             // Clear interrupt flag
-    ADCCTL0 |= ADCENC | ADCSC;      // restart ADC every 0.5s
 }
 
 #pragma vector = TIMER3_B1_VECTOR
@@ -503,10 +504,10 @@ __interrupt void LCD_I2C_ISR(void){
 }
 
 #pragma vector=EUSCI_B1_VECTOR
-__interrupt void LED_I2C_ISR(void){
+__interrupt void LED_I2C_ISR(void) {
     if (LED_Data_Cnt == (sizeof(LED_Data_Packet) - 1)) {
         UCB1TXBUF = LED_Data_Packet[LED_Data_Cnt];
-        LED_Data_Cnt = 0;
+        LCD_Data_Cnt = 0;
     } else {
         UCB1TXBUF = LED_Data_Packet[LED_Data_Cnt];
         LED_Data_Cnt++;
