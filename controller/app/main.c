@@ -448,7 +448,7 @@ void i2c_write_lcd(void) {
     LCD_Data_Packet[0] = mode;
     LCD_Data_Packet[1] = pattern;
     LCD_Data_Packet[2] = temp_type;
-    LCD_Data_Packet[3] = (int)(temp_avg * 10 + 0.5f);   // ex. 23.12 --> 231
+    LCD_Data_Packet[3] = (int)(temp_avg * 10 + 0.5f) - 100;   // ex. 23.12 --> 231
     LCD_Data_Packet[4] = window_size;     
     UCB0TBCNT = sizeof(LCD_Data_Packet);            
     UCB0CTLW0 |= UCTXSTT;                               // start condition
