@@ -1,18 +1,27 @@
 #include "msp430fr2355.h"
 #include <msp430.h> 
 
-    int pattern = 2;
     int cursor_status = 1;
     int blink_status = 1;
     int busy = 0;
+    int mode = 1;
+    int pattern = -1;
+    int FC = -1;
+    int temp = -1;
+    int n = -1;
+
+    int temp_tens = -1;
+    int temp_ones = -1;
+    int temp_decimal = -1;
+
+    int n_tens = -1;
+    int n_ones = -1;
 
     int Data_Cnt = 0;
-    int Data_In[] = {0x00, 0x00, 0x00};
+    int Data_In[] = {0x00, 0x00, 0x00, 0x00, 0x00};
+    int last_mode = -1;
+    
 
-    int status = -1;
-    int key_num = -1;
-    int last_key = -1;
-/*
 void i2c_b0_init(void) {
     WDTCTL = WDTPW | WDTHOLD;               // Stop watchdog timer
 
@@ -35,7 +44,7 @@ void i2c_b0_init(void) {
     UCB0IE |= UCRXIE0 | UCSTPIE | UCSTTIE;  // Enable I2C Rx0 IR1
     __enable_interrupt();                   // Enable Maskable IRQs
 }
- */
+ 
 int main(void)
 {
 
@@ -58,65 +67,88 @@ int main(void)
     setup();
     while(1){
 
-    clear_display();
-    print_pattern(1);
-    __delay_cycles(200000);
-    clear_display();
-    print_pattern(2);
-    __delay_cycles(200000);
-    clear_display();
-    print_pattern(3);
-    __delay_cycles(200000);
-    clear_display();
-    print_pattern(4);
-    __delay_cycles(200000);
-    clear_display();
-    print_pattern(5);
-    __delay_cycles(200000);
-    clear_display();
+        if(mode == 0 && last_mode != 0){
+            clear_top_row();
+            print_pattern(pattern);
+            last_mode = 0;
 
-    status = 2;
-    key_num = 3;
-    //base_transition_period = Data_In[2] * 0.25;
+        }
 
-    if(key_num != last_key){
-        if (key_num != 9 && key_num != 12){
-            clear_display();}
-        print_pattern(key_num);
-        //print_key(key_num);
-        
+        else if(mode = 1 && last_mode != 1){
+            clear_top_row();
+            print_pattern(9);
+            last_mode = 1;
+
+        }
+
+        else if (mode = 2 && last_mode != 2){
+            clear_top_row();
+            print_pattern(10);
+            last_mode = 2;
+        }
+    print_temp(temp, FC);
+    print_n(n);
     }
-    __delay_cycles(2000);
-    last_key = key_num;
 
-    }
-    __delay_cycles(2000);
-    last_key = key_num;
+
+
 
 
     
 }
 void process_i2c_data(void) {
-    //status = Data_In[0];
-    //key_num = Data_In[1];
-    status = 2;
-    key_num = 3;
-    //base_transition_period = Data_In[2] * 0.25;
+    mode = Data_In[0];
+    pattern = Data_In[1];
+    FC = Data_In[2];
+    temp = Data_In[3];
+    n = Data_In[4];
 
-    if(key_num != last_key){
-        if (key_num != 9 && key_num != 12){
-            clear_display();}
-        print_pattern(key_num);
-        //print_key(key_num);
-        
+
+
+}
+void print_n(int n){
+
+    n_tens = n / 10;
+    n_ones = n - n_tens * 10;
+    byte(0b1100,0b1100,0,0);        // move to correct location
+    byte(0b0100,0b1110,1,0);
+    byte(0b0011,0b1101,1,0);
+    byte(0b0011,n_tens,1,0);
+    byte(0b0011,n_ones,1,0);
+
+}
+void print_temp(int temp, int FC){
+
+    if(FC == 1){
+        temp = temp * 9;
+        temp = temp/5 + 320;
     }
-    __delay_cycles(2000);
-    last_key = key_num;
+
+    temp_tens = temp / 100;
+    temp_ones = temp / 10 - temp_tens * 10;
+    temp_decimal = temp - temp_tens * 100 - temp_ones * 10;
+
+    byte(0b1100,0b0000,0,0);        // move to second row
+    byte(0b0101,0b0100,1,0);
+    byte(0b0011,0b1101,1,0);
+    byte(0b011,temp_tens,1,0);
+    byte(0b0011,temp_ones,1,0);
+    byte(0b0010, 0b1110,1,0);
+    byte(0b0011,temp_decimal,1,0);
+    byte(0b1101,0b1111,1,0);
+
+    if(FC == 1){
+        byte(0b0100,0b0110,1,0);
+    }
+    else if(FC == 0){
+        byte(0b0100,0b0011,1,0);
+    }
 
 }
 
+
 void print_pattern(int pattern){
-    if(pattern == 0){
+    if(pattern == 0){           // Statiic
         return_home();
         byte(0b0111,0b0011,1,0);
         byte(0b0111,0b0100,1,0);
@@ -125,7 +157,7 @@ void print_pattern(int pattern){
         byte(0b0110,0b1001,1,0);
         byte(0b0110,0b0011,1,0);
     }
-    else if(pattern == 1){
+    else if(pattern == 1){      //toggle
         return_home();
         byte(0b0111,0b0100,1,0);
         byte(0b0110,0b1111,1,0);
@@ -134,8 +166,8 @@ void print_pattern(int pattern){
         byte(0b0110,0b1100,1,0);
         byte(0b0110,0b0101,1,0);
     }
-    else if(pattern == 2){
-        return_home();
+    else if(pattern == 2){      //up counter
+        return_home();          
         byte(0b0111,0b0101,1,0);
         byte(0b0111,0b0000,1,0);
         shift_right();
@@ -147,7 +179,7 @@ void print_pattern(int pattern){
         byte(0b0110,0b0101,1,0);
         byte(0b0111,0b0010,1,0);
     }
-    else if(pattern == 3){
+    else if(pattern == 3){      //in and out
         return_home();
         byte(0b0110,0b1001,1,0);
         byte(0b0110,0b1110,1,0);
@@ -161,7 +193,7 @@ void print_pattern(int pattern){
         byte(0b0111,0b0100,1,0);
 
     }
-    else if(pattern == 4){
+    else if(pattern == 4){      //down counter
         return_home();
         byte(0b0110,0b0100,1,0);
         byte(0b0110,0b1111,1,0);
@@ -176,7 +208,7 @@ void print_pattern(int pattern){
         byte(0b0110,0b0101,1,0);
         byte(0b0111,0b0010,1,0);
     }
-    else if(pattern == 5){
+    else if(pattern == 5){      // rotate one left
         return_home();
         byte(0b0111,0b0010,1,0);
         byte(0b0110,0b1111,1,0);
@@ -192,8 +224,8 @@ void print_pattern(int pattern){
         byte(0b0110,0b0110,1,0);
         byte(0b0111,0b0100,1,0);
     }
-    else if(pattern == 6){
-        return_home();
+    else if(pattern == 6){      //rotate 7 right
+        return_home();          
         byte(0b0111,0b0010,1,0);
         byte(0b0110,0b1111,1,0);
         byte(0b0111,0b0100,1,0);
@@ -208,7 +240,7 @@ void print_pattern(int pattern){
         byte(0b0110,0b1000,1,0);
         byte(0b0111,0b0100,1,0);
     }
-    else if(pattern == 7){
+    else if(pattern == 7){      //fill left
         return_home();
         byte(0b0110,0b0110,1,0);
         byte(0b0110,0b1001,1,0);
@@ -221,12 +253,70 @@ void print_pattern(int pattern){
         byte(0b0111,0b0100,1,0);
     }
 
+        else if(pattern == 8){      //no pattern
+        return_home();
+        byte(0b0110,0b1110,1,0);
+        byte(0b0110,0b1111,1,0);
+        shift_right();
+        byte(0b0111,0b0000,1,0);
+        byte(0b0110,0b0001,1,0);
+        byte(0b0111,0b0100,1,0);
+        byte(0b0111,0b0100,1,0);
+        byte(0b0110,0b0101,1,0);
+        byte(0b0111,0b0010,1,0);
+        byte(0b0110,0b1110,1,0);
+
+    }
+
+    else if(pattern == 9){      //set window size
+        return_home();
+        byte(0b0111,0b0011,1,0);
+        byte(0b0110,0b0101,1,0);
+        byte(0b0111,0b0100,1,0);
+        shift_right();
+        byte(0b0111,0b0111,1,0);
+        byte(0b0110,0b1001,1,0);
+        byte(0b0110,0b1110,1,0);
+        byte(0b0110,0b0100,1,0);
+        byte(0b0110,0b1111,1,0);
+        byte(0b0111,0b0111,1,0);
+        shift_right();
+        byte(0b0111,0b0011,1,0);
+        byte(0b0110,0b1001,1,0);
+        byte(0b0111,0b1010,1,0);
+        byte(0b0110,0b0101,1,0);
+    }
+
+    else if(pattern == 10){      //set pattern
+        return_home();
+        byte(0b0111,0b0011,1,0);
+        byte(0b0110,0b0101,1,0);
+        byte(0b0111,0b0100,1,0);
+        shift_right();
+        byte(0b0111,0b0000,1,0);
+        byte(0b0110,0b0001,1,0);
+        byte(0b0111,0b0100,1,0);
+        byte(0b0111,0b0100,1,0);
+        byte(0b0110,0b0101,1,0);
+        byte(0b0111,0b0010,1,0);
+        byte(0b0110,0b1110,1,0);
+    }
+
 }
 
 
 int shift_right(void){
 
     byte(0b0010,0b0000,1,0);
+}
+
+void clear_top_row(){
+    return_home();
+    int i = 0;
+    for(i=0; i<16; i=i+1){
+        shift_right();
+    }
+    
 }
 
 
@@ -342,7 +432,7 @@ void internal_check_busy(){
     }
 }
 
-/*#pragma vector=EUSCI_B0_VECTOR
+#pragma vector=EUSCI_B0_VECTOR
 __interrupt void LED_I2C_ISR(void){
     switch(__even_in_range(UCB0IV, USCI_I2C_UCBIT9IFG)) {
         case USCI_NONE: break;
@@ -352,10 +442,10 @@ __interrupt void LED_I2C_ISR(void){
             break;
 
         case USCI_I2C_UCRXIFG0:   // Byte received
-            if (Data_Cnt < 3) {
+            if (Data_Cnt < 5) {
                 Data_In[Data_Cnt++] = UCB0RXBUF;
             }
-            if (Data_Cnt == 3) {
+            if (Data_Cnt == 5) {
                 process_i2c_data();
             }
             break;
@@ -366,4 +456,4 @@ __interrupt void LED_I2C_ISR(void){
 
         default: break;
     }
-}*/
+}
