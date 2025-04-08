@@ -7,7 +7,7 @@ Jay Graham, Kyle Stopplecamp
 This project involves building a microcontroller-based system using the MSP430 to control a temperature monitoring and display setup. A master MSP430 samples temperature data from an LM19 sensor, computes a moving average using a circular buffer, and sends the results to two slave MSP430s via I2C. One slave updates an LCD with temperature and system status, while the other controls an LED bar to reflect selected patterns. The system also includes a keypad for user input, supporting unlocking and adjusting settings like the averaging window and LED pattern.
 
 ### High-Level Flowcharts
-![High-Level Flowcharts](proj5_flowcharts.png)
+![High-Level Flowcharts](project5_flowchart.png)
 
 ### Circuit Diagram
 ![Circuit Diagram](proj5_circuit_diagram.png)
