@@ -4,7 +4,7 @@
     int cursor_status = 1;
     int blink_status = 1;
     int busy = 0;
-    int mode = 1;
+    int mode = -1;
     int pattern = -1;
     int FC = -1;
     int temp = -1;
@@ -48,6 +48,7 @@ void i2c_b0_init(void) {
 int main(void)
 {
 
+ 
 
     //-- Setup Ports
 
@@ -56,8 +57,8 @@ int main(void)
     P6OUT   &= ~0b00001111;
 
     //-- control bits
-    P1DIR   |= 0b00000111;
-    P1OUT   &= ~0b00000111;
+    P2DIR   |= 0b00000111;
+    P2OUT   &= ~0b00000111;
 
 
     WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
@@ -65,6 +66,7 @@ int main(void)
 
 
     setup();
+    i2c_b0_init();
     while(1){
 
         if(mode == 0 && last_mode != 0){
@@ -74,14 +76,14 @@ int main(void)
 
         }
 
-        else if(mode = 1 && last_mode != 1){
+        else if(mode == 1 && last_mode != 1){
             clear_top_row();
             print_pattern(9);
             last_mode = 1;
 
         }
 
-        else if (mode = 2 && last_mode != 2){
+        else if (mode == 2 && last_mode != 2){
             clear_top_row();
             print_pattern(10);
             last_mode = 2;
@@ -118,6 +120,7 @@ void print_n(int n){
 
 }
 void print_temp(int temp, int FC){
+    temp = temp + 100;
 
     if(FC == 1){
         temp = temp * 9;
@@ -326,18 +329,18 @@ int byte(int upper, int lower, int RS, int RW){
     __delay_cycles(4);
     P6OUT   &= ~0b1111;
     P6OUT   |= upper;
-    P1OUT   |= BIT0;        //Enable pin
+    P2OUT   |= BIT0;        //Enable pin
     __delay_cycles(4);
-    P1OUT   &= ~BIT0;
+    P2OUT   &= ~BIT0;
     __delay_cycles(4);
     //check_busy();
     //reset_flags(RS,RW);
     __delay_cycles(4);
     P6OUT   &= ~0b1111;
     P6OUT   |= lower;
-    P1OUT   |= BIT0;
+    P2OUT   |= BIT0;
     __delay_cycles(4);
-    P1OUT   &= ~BIT0;
+    P2OUT   &= ~BIT0;
     __delay_cycles(20);
     // End DD Ram set key-------------------------------------------
     return 0;
@@ -345,17 +348,17 @@ int byte(int upper, int lower, int RS, int RW){
 
 void reset_flags(RS, RW){
     if(RS == 1){
-        P1OUT   |= BIT2;
+        P2OUT   |= BIT2;
     }
     else if (RS == 0) {
-        P1OUT  &= ~BIT2;
+        P2OUT  &= ~BIT2;
     }
 
     if(RW == 1){
-        P1OUT   |= BIT1;
+        P2OUT   |= BIT1;
     }
     else if (RW == 0) {
-        P1OUT &= ~BIT1;
+        P2OUT &= ~BIT1;
     }
 }
 int clear_display(void){
@@ -385,7 +388,7 @@ int setup(void){
     return_home();
     //__delay_cycles(200);
     // Display on -------------------------------------------
-    byte(0b0000, 0b1111,0,0);
+    byte(0b0000, 0b1100,0,0);
     //__delay_cycles(200);
     //End Display on  -------------------------------------------
     return 0;
@@ -397,33 +400,33 @@ void check_busy(void){
     P6REN   |= 0b1111;
     P6OUT   &= ~0b1111;
 
-    P1OUT   &= ~BIT2;
-    P1OUT   |= BIT1;
+    P2OUT   &= ~BIT2;
+    P2OUT   |= BIT1;
     __delay_cycles(1000);
     internal_check_busy();
     P6DIR   |= 0b00001111;      
     P6OUT   &= ~0b00001111;
     
-    P1OUT   &= ~BIT2;
-    P1OUT   &= ~BIT1;
+    P2OUT   &= ~BIT2;
+    P2OUT   &= ~BIT1;
     __delay_cycles(1000);
 
 }
 void internal_check_busy(){
-    P1OUT   |= BIT0;
+    P2OUT   |= BIT0;
     busy    = P6IN;
     busy    &= BIT3;
     __delay_cycles(1000);
     
 
-    P1OUT   &= ~BIT0;
+    P2OUT   &= ~BIT0;
     __delay_cycles(1000);
 
-    P1OUT   |= BIT0;
+    P2OUT   |= BIT0;
 
     __delay_cycles(1000);
 
-    P1OUT   &= ~BIT0;
+    P2OUT   &= ~BIT0;
     __delay_cycles(1000);
 
     if(busy != 0){
