@@ -83,15 +83,10 @@ int pattern5 = 0;
 int pattern6 = 0;
 int pattern7 = 0;
 int pattern3_step = 0;
-int pattern6_step = 0;
-
-//int base_transition_scalar = 4;   
+int pattern6_step = 0; 
 
 int Data_Cnt = 0;
-//int Data_In[] = {0x00, 0x00, 0x00};
 int Data_In[] = {0x00, 0x00};
-
-int last_i2c_time = 0;
 
 void init_led_bar(void) {
     WDTCTL = WDTPW | WDTHOLD;                    // Stop watchdog timer           
@@ -105,7 +100,6 @@ void init_led_bar(void) {
 
     // Configure Timer B0
     TB0CTL |= (TBSSEL__ACLK | MC__UP | TBCLR); // Use ACLK, up mode, clear
-    //TB0CCR0 = (int)(base_transition_scalar * 8192);    // 1s for ACLK (32768Hz)
     TB0CCR0 = 32768;                                    // 1s timer for pattern transition
 
     // Enable and clear interrupts for each color channel
@@ -138,30 +132,9 @@ void i2c_b0_init(void) {
     __enable_interrupt();                   // Enable Maskable IRQs
 }
 
-/*
-void i2c_status_led_init( void) {
-    WDTCTL = WDTPW | WDTHOLD;                   // Stop watchdog timer
-    PM5CTL0 &= ~LOCKLPM5;                       // Disable High Z mode
-
-    P2DIR |= BIT0;                              // Set P2.0 as output
-    P2OUT &= ~BIT0;                             // Clear P2.0
-
-    // Configure Timer B1
-    TB1CTL |= (TBSSEL__ACLK | MC__UP | TBCLR);  // Use ACLK, up mode, clear
-    TB1CCR0 = 32768;                            // 1s timer
-
-    // Enable and clear interrupts for each color channel
-    TB1CCTL0 |= CCIE;                           // Interrupt for pattern transistions
-    TB1CCTL0 &= ~CCIFG;
-
-    __enable_interrupt();                       // enable interrupts
-}
-*/
-
 int main(void) {
     init_led_bar();
     i2c_b0_init();
-    //i2c_status_led_init();
 
     while(1) {
         __no_operation();
@@ -171,14 +144,10 @@ int main(void) {
 void process_i2c_data(void) {
     status = Data_In[0];
     key_num = Data_In[1];
-    //base_transition_scalar = Data_In[2];
-
-    //TB0CCR0 = (int)(base_transition_scalar * 8192);     // 8192 = 0.25s for ACLK (32768Hz)
 
     if (key_num >= 0 && key_num <= 7) {
         pattern = key_num;
         update_led_bar(status, pattern);
-    //} else if (key_num == -1) {
     } else {
         write_8bit_value(0b00000000);
     }
@@ -217,7 +186,6 @@ void update_led_bar(int status, int pattern) {
         pattern = -1;                   // reset everything when system gets locked
         current_pattern = -1;
         next_pattern = -1;
-        //base_transition_scalar = 4;
         write_8bit_value(0x00);  
     }      
 }
@@ -315,7 +283,6 @@ __interrupt void Pattern_Transition_ISR(void) {
         pattern = -1;                   // reset everything when system gets locked
         current_pattern = -1;
         next_pattern = -1;
-        //base_transition_scalar = 4;
         write_8bit_value(0b00000000);
     }
     TB0CCTL0 &= ~ CCIFG;            // Clear interrupt flag
@@ -336,8 +303,6 @@ __interrupt void LED_I2C_ISR(void){
             }
             if (Data_Cnt == 2) {                        // <-- CHANGED FROM 3 to 2
                 process_i2c_data(); 
-                //last_i2c_time = 0;  // Reset I2C activity timer 
-                //P2OUT |= BIT0;
             }
             break;
 
@@ -348,16 +313,3 @@ __interrupt void LED_I2C_ISR(void){
         default: break;
     }
 }
-
-/*
-#pragma vector = TIMER1_B0_VECTOR
-__interrupt void Timer1_ISR(void) {
-    last_i2c_time++;
-
-    if (last_i2c_time >= 3) { // 3 seconds
-        P2OUT &= ~BIT0;       // Turn OFF LED (recent I2C activity)
-    }
-
-    TB1CCTL0 &= ~CCIFG;       // Clear flag
-}
-*/
