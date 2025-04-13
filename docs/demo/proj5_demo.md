@@ -1,13 +1,24 @@
-# Project 5 Workload Distribution Form: 2 Partners
+# Project 5 - Demo
 
-It is recommended that at least some of the functionality is a shared responsibility between two or more members of the team, whereas some of the functionality is assigned solely to an individual. That said, how you break up the project is entirely up to you, so long as the workload distribution (measured in points as defined below) is approximately balanced.
+## Team Members
+Jay Graham, Kyle Stopplecamp
 
-You are encouraged to support each other with an overall goal of successfully completing the project. If one person struggles with their responsibility, the other member is encouraged to step in. However, an agreement should be struck between the partners wherein one partner gives up some of the assigned points for that function relative to the amount of help received.  
+## Introduction
+This project involves building a microcontroller-based system using the MSP430 to control a temperature monitoring and display setup. A master MSP430 samples temperature data from an LM19 sensor, computes a moving average using a circular buffer, and sends the results to two slave MSP430s via I2C. One slave updates an LCD with temperature and system status, while the other controls an LED bar to reflect selected patterns. The system also includes a keypad for user input, supporting unlocking and adjusting settings like the averaging window and LED pattern.
 
-You will fill out this form:
-1. Before the project starts. This is to document your intention. 
-2. Before the demo if there was any deviation from the initial plan.
+### High-Level Flowcharts
+![High-Level Flowcharts](project5_flowchart.png)
 
+### Circuit Diagram
+![Circuit Diagram](proj5_circuit_diagram.png)
+
+### Software Architecture
+![Software Architecture](proj5_architecture.png)
+
+## DEMO
+Done with TA or Trevor on 4/8/25
+
+## Review of Results
 | Requirement/specification                                                                                 | Points |   Jay     |   Kyle    |
 |-----------------------------------------------------------------------------------------------------------|--------|-----------|-----------|
 | **Presentation**                                                                                          |        |           |           |
@@ -44,5 +55,5 @@ The extra credit points are allotted to both partners. You don't need to formall
 
 | Extra credit requirement/specification                                                                   | Extra Credit Points |
 |----------------------------------------------------------------------------------------------------------|---------------------|
-| The user can enter a multi-digit number for the window size                                              | 1                   |
-| The user can switch between displaying the temperature in Celsius and Fahrenheit                         | 1                   |
+| The user can enter a multi-digit number for the window size                                              | 1          No       |
+| The user can switch between displaying the temperature in Celsius and Fahrenheit                         | 1          Yes      |
